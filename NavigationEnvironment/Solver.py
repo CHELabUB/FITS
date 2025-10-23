@@ -28,6 +28,8 @@ class DifferentiableEuler:
             self.h_jits.append(jax.jit(h))
 
             # Capture the current value of i using a default argument
+            # [CRH] need some work here if the h are time dependent.
+            # need to do similar to dynamic_J below
             self.h_grads.append(jax.value_and_grad(lambda x, h_jit=self.h_jits[i]: self.diff_h_fun(x, h_jit)))
             self.dhdss.append(jax.jit(self.h_grads[i]))
 
@@ -38,6 +40,7 @@ class DifferentiableEuler:
             # self.J_grad = jax.grad(self.J_jit)
             self.dJds = jax.jit(self.J_grad)
         else:
+            # [CRH] need to change here if we have a dynamic reference, argnums = 0 meaning it is differentiate with respect to first arg s
             self.J_grad = jax.grad(self.diff_J_fun_dynamic, argnums=0)
             self.dJds = jax.jit(self.J_grad)
 

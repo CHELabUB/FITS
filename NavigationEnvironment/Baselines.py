@@ -133,6 +133,7 @@ class MPC:
 
     def setup_optimizer(self):
         '''Sets up nonlinear optimization problem.'''
+        # [CRH] Standard discretization for optimal control using CasADi
         nx, nu = self.dyn.nx, self.dyn.nu
 
         T = self.horizon
@@ -229,6 +230,7 @@ class MPC:
         # Assign the initial state.
         opti.set_value(x_init, x)
         # Assign reference trajectory within horizon.
+        # [CRH] the goal state is not set outside but acquired here.
         goal_states = np.tile(np.array([6., 6., 0., 0.]).reshape(-1, 1), (1, self.horizon + 1))
         opti.set_value(x_ref, goal_states)
 

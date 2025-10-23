@@ -12,7 +12,9 @@ import pickle
 x0 = jnp.array([0.0, 1.0, 0.0, 0.])
 xg = jnp.array([6.0, 6.0, 0.0, 0.])
 
-save_data = False
+save_data = True
+folder_name = './temp_data/'
+path_dir = os.path.dirname(folder_name)
 
 N_obs = 30
 obstacles = []
@@ -42,6 +44,7 @@ h = lambda x: np.min([np.linalg.norm(x[0:2] - c[0]) - c[1] for c in obstacles])
 
 def closed_loop_sys(x, t):
     start = time.time()
+    # [CRH] simple proportional controller towards the goal
     u_ref = np.clip(np.diag(np.array([-1, -1])) @ (x - xg)[:2], cbf.dyn.u_min, cbf.dyn.u_max)
     u = cbf.get_control(x, u_ref)
     tc = time.time() - start
@@ -67,6 +70,12 @@ for i in range(1, num_steps):
 
 
 results = {"trajs_data": trajectory, "controls": controls, "comp_times": comp_times, "h_vals": h_vals}
+
+if save_data:
+    os.makedirs(path_dir, exist_ok=True)
+    with open(f'{folder_name}CBF1.pkl', 'wb') as file:
+        pickle.dump(results, file)
+
 fig, ax = plt.subplots()
 
 # Initialize plot elements
@@ -87,15 +96,11 @@ ax.axis('equal')
 ax.set_xlim(-0.1, 6.5)
 ax.set_ylim(-0.1, 6.5)
 
-plt.show()
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'CBF_fig1.png'))
 fig, ax = plt.subplots()
 
 ax.plot([c[0] for c in controls])
 ax.plot([c[1] for c in controls])
-plt.show()
-
-if save_data:
-    path_dir = os.path.dirname('./temp-data/')
-    os.makedirs(path_dir, exist_ok=True)
-    with open(f'./temp-data/CBF1.pkl', 'wb') as file:
-        pickle.dump(results, file)
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'CBF_fig2.png'))

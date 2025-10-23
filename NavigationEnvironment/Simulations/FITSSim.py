@@ -13,7 +13,9 @@ x0 = jnp.array([0.0, 1.0, 0.0, 0.])
 xg = jnp.array([6.0, 6.0, 0.0, 0.])
 
 
-save_data = False
+save_data = True
+folder_name = './temp_data/'
+path_dir = os.path.dirname(folder_name)
 
 
 N_obs = 30
@@ -89,6 +91,12 @@ for i in range(1, num_steps):
 
 
 results = {"trajs_data": trajectory, "controls": controls, "comp_times": comp_times, "h_vals": h_vals}
+
+if save_data:
+    os.makedirs(path_dir, exist_ok=True)
+    with open(f'{folder_name}FITS.pkl', 'wb') as file:
+        pickle.dump(results, file)
+
 fig, ax = plt.subplots()
 
 # Initialize plot elements
@@ -110,16 +118,12 @@ ax.axis('equal')
 ax.set_xlim(-0.1, 6.5)
 ax.set_ylim(-0.1, 6.5)
 
-plt.show()
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'FITS_fig1.png'))
 
 fig, ax = plt.subplots()
 # ax.plot(h_vals)
 ax.plot([c[0] for c in controls])
 ax.plot([c[1] for c in controls])
-plt.show()
-
-if save_data:
-    path_dir = os.path.dirname('./temp-data/')
-    os.makedirs(path_dir, exist_ok=True)
-    with open(f'./temp-data/FITS.pkl', 'wb') as file:
-        pickle.dump(results, file)
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'FITS_fig2.png'))

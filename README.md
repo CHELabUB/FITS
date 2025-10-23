@@ -25,3 +25,10 @@ cd ./FITSExperiment/   # Navigate to the examples folder
 Add safe-control-gym submodules and then following the installation instruction, use authors's fork [here](https://github.com/mattivahs/safe-control-gym.git)
 
 Use python3.10 in WSL
+
+For simulation start with examples in [here](NavigationEnvironment\Simulations)
+
+run the following at the root.
+```
+pip install -e .
+```

@@ -30,6 +30,7 @@ class FITS:
         # self.dyn = DynamicUnicycleModel()
         self.dyn = DIModel()
 
+        # [CRH] for FITS, states include initial condition and input trajectory
         self.state = jnp.concatenate((jnp.zeros(self.dyn.nx), 0.01*jnp.ones((horizon - 1) * self.dyn.nu)))
 
         self.dt = 1. / control_freq
@@ -106,6 +107,9 @@ class FITS:
             self.get_control(x0, dt, ref)
 
     def J_s(self, x_sol):
+        # [CRH] quadratic cost on final state and control effort
+        # also not set outside but directly defined here
+        # also weight on 
         J = 10*(jnp.sum(jnp.linalg.norm(jnp.array([1., 1.]) * (x_sol[..., :2] - jnp.array([6., 6.])), axis=1))) + 0*x_sol[-1, 2:] @ x_sol[-1, 2:].T
         return J
 
