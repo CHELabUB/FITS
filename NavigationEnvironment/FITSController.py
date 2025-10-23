@@ -48,6 +48,7 @@ class FITS:
         c_funs = [lambda x, c=c: self.h_s(x, c) for c in self.constraint_functions]
 
         ode_step = self.T / float(self.M)
+        # CRH: define the dynamics in terms of the differentiable euler solver of ode with inputs.
         self.solver = DifferentiableEuler(self.dyn, self.T, ode_step, self.T / self.N, c_funs, self.J_s, dynamic_J=False)
         self.alp1 = alpha_1
         self.alp2 = alpha_2
@@ -64,6 +65,7 @@ class FITS:
         # Compile functions
         print("### Just-in-time compilation starting ###")
         s = jnp.ones(self.dyn.nx + (self.N - 1) * self.dyn.nu)
+        # [CRH] evaluation of all functions at initial points, making sure that they can compile
         self.solver.integrate(s)
         self.solver.odeint(s)
         for dhds in self.solver.dhdss:
@@ -130,6 +132,7 @@ class FITS:
         return gradient @ dhdss
 
     def min_formulation_(self, state):
+        # CRH: main implementation for control bound 
         h_i, dhds_i = self.solver.dhdss[0](state)
 
         h_collection = jnp.array(h_i)

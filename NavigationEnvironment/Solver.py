@@ -7,6 +7,8 @@ import copy
 
 
 class DifferentiableEuler:
+    # CRH: the main formulation that get d phi / ds and dJ / ds via differentiable euler integration
+    # can reuse for other dynamics
     def __init__(self, dyn, T, dt, control_dt, h_funs=[], J_fun=None, dynamic_J=False):
         self.dyn = dyn
         self.ode_jit = jax.jit(self.ode)
@@ -22,6 +24,7 @@ class DifferentiableEuler:
         self.h_grads = []
         self.dhdss = []
         for i, h in enumerate(h_funs):
+            # [CRH] auto differentiation of the gradient and hessian of constraint functions
             self.h_jits.append(jax.jit(h))
 
             # Capture the current value of i using a default argument
@@ -57,6 +60,7 @@ class DifferentiableEuler:
         return self.dyn.f(x) + self.dyn.g(x) @ u
 
     def integrate(self, s):
+        # standard euler integration, not for jitting
         x0 = s[:self.dyn.nx]
         u_seq = s[self.dyn.nx:]
         x_sol = [x0]
@@ -69,6 +73,8 @@ class DifferentiableEuler:
         return jnp.array(x_sol)
 
     def integrate_fori(self, s):
+        # CRH: fori loop implementation of euler integration
+        # allows jax to unroll the loop for better performance
         x_sol = jnp.zeros((int(self.T / self.dt), self.dyn.nx))
         x_sol = x_sol.at[0, :].set(s[:self.dyn.nx])
         u_seq = s[self.dyn.nx:]
