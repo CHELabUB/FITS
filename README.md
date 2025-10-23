@@ -21,3 +21,7 @@ Comparison with baseline approaches, namely Control Barrier Functions (CBFs) and
 cd ./FITSExperiment/   # Navigate to the examples folder
 ./fits_experiment.sh
 ```
+
+Add safe-control-gym submodules and then following the installation instruction, use authors's fork [here](https://github.com/mattivahs/safe-control-gym.git)
+
+Use python3.10 in WSL
