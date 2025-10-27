@@ -16,6 +16,8 @@ class FITS:
             warmstart: bool = True,
             use_min_formulation: bool = False,
             constraint_functions: list = None,
+            xg: jnp.array = jnp.array([6., 6.]),
+            dyn = None,
             ):
         '''Creates task and controller.
 
@@ -28,15 +30,23 @@ class FITS:
         self.use_min = use_min_formulation
 
         # self.dyn = DynamicUnicycleModel()
-        self.dyn = DIModel()
+        if dyn is None:
+            # self.dyn = dyn
+            print("Using default dynamics model DIModel for FITS.")
+            self.dyn = DIModel()
+        else:
+            print(f"Using provided dynamics model {dyn.name} for FITS.")
+            self.dyn = dyn
 
+        # [CRH] for FITS, states include initial condition and input trajectory
         self.state = jnp.concatenate((jnp.zeros(self.dyn.nx), 0.01*jnp.ones((horizon - 1) * self.dyn.nu)))
 
         self.dt = 1. / control_freq
         self.N = horizon
         self.T = (self.N) * self.dt
         self.M = trajectory_discretization
-
+        # target state
+        self.xg = xg
 
         # actuation constraints
         self.umin = self.dyn.u_min
@@ -48,6 +58,7 @@ class FITS:
         c_funs = [lambda x, c=c: self.h_s(x, c) for c in self.constraint_functions]
 
         ode_step = self.T / float(self.M)
+        # CRH: define the dynamics in terms of the differentiable euler solver of ode with inputs.
         self.solver = DifferentiableEuler(self.dyn, self.T, ode_step, self.T / self.N, c_funs, self.J_s, dynamic_J=False)
         self.alp1 = alpha_1
         self.alp2 = alpha_2
@@ -64,6 +75,7 @@ class FITS:
         # Compile functions
         print("### Just-in-time compilation starting ###")
         s = jnp.ones(self.dyn.nx + (self.N - 1) * self.dyn.nu)
+        # [CRH] evaluation of all functions at initial points, making sure that they can compile
         self.solver.integrate(s)
         self.solver.odeint(s)
         for dhds in self.solver.dhdss:
@@ -104,11 +116,16 @@ class FITS:
             self.get_control(x0, dt, ref)
 
     def J_s(self, x_sol):
-        J = 10*(jnp.sum(jnp.linalg.norm(jnp.array([1., 1.]) * (x_sol[..., :2] - jnp.array([6., 6.])), axis=1))) + 0*x_sol[-1, 2:] @ x_sol[-1, 2:].T
+        # [CRH] quadratic cost on final state and control effort
+        # also not set outside but directly defined here
+        # also weight on objective can be tuned outside
+        # [CRH] updated to take goal state set outside,
+        J = 10*(jnp.sum(jnp.linalg.norm(jnp.array([1., 1.]) * (x_sol[..., :2] - self.xg), axis=1))) + 0*x_sol[-1, 2:] @ x_sol[-1, 2:].T
         return J
 
     def J_filter(self, state):
-        u_ref = jnp.clip(jnp.diag(jnp.array([-1, -1])) @ (state[:2] - jnp.array([6., 6.])), self.dyn.u_min, self.dyn.u_max)
+        # [CRH] updated to take goal state set outside,
+        u_ref = jnp.clip(jnp.diag(jnp.array([-1, -1])) @ (state[:2] - self.xg), self.dyn.u_min, self.dyn.u_max)
         return jnp.linalg.norm(state[self.dyn.nx:(self.dyn.nx + self.dyn.nu)] - u_ref)
 
     def input_constraints(self, G_ineq, h_ineq, state):
@@ -130,6 +147,7 @@ class FITS:
         return gradient @ dhdss
 
     def min_formulation_(self, state):
+        # CRH: main implementation for control bound 
         h_i, dhds_i = self.solver.dhdss[0](state)
 
         h_collection = jnp.array(h_i)

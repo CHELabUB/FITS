@@ -4,24 +4,42 @@ import copy
 import jax.numpy as jnp
 import time
 from NavigationEnvironment.Baselines import MPC
+from NavigationEnvironment.Solver import DIModel, DynamicUnicycleModel
+
 import os
 import pickle
 
 
 # Initial state and goal state
 x0 = jnp.array([0.0, 1.0, 0.0, 0.])
-xg = jnp.array([6.0, 6.0, 0.0, 0.])
+xg = jnp.array([6.0, 1.0, 0.0, 0.])
+# xg = jnp.array([6.0, 6.0, 0.0, 0.])
 
-save_data = False
+save_data = True
+# folder_name = './temp_single_obstacle/'
+# model = DIModel()
 
-N_obs = 30
+folder_name = './temp_single_obstacle_Unicycle/'
+model = DynamicUnicycleModel()
+
+
+path_dir = os.path.dirname(folder_name)
+
+
+
+# one single one directly on the track
+N_obs = 1
 obstacles = []
-np.random.seed(43)
-for i in range(N_obs):
-    x = np.random.uniform(1., 5.)
-    y = np.random.uniform(1., 5.)
-    r = np.random.uniform(0.1, 0.6)
-    obstacles.append((jnp.array([x, y]), r))
+obstacles.append((jnp.array([3.0, 1.0]), 0.5))
+
+# N_obs = 30
+# obstacles = []
+# np.random.seed(43)
+# for i in range(N_obs):
+#     x = np.random.uniform(1., 5.)
+#     y = np.random.uniform(1., 5.)
+#     r = np.random.uniform(0.1, 0.6)
+#     obstacles.append((jnp.array([x, y]), r))
 
 def smooth_min(y):
     gamma = 10.0
@@ -40,6 +58,7 @@ constraint_functions.append(bd2)
 constraint_functions.append(bd3)
 constraint_functions.append(bd4)
 
+# The MPC setting may subject to some tunning as the current single object case leads to vehicle go beyond the target and then coming back.
 mpc = MPC(control_freq=20,
           horizon=30,
           q_mpc=[10., 10., 1., 1.],
@@ -47,6 +66,8 @@ mpc = MPC(control_freq=20,
           warmstart=True,
           soft_constraints=False,
           constraint_functions=constraint_functions,
+          xg=xg,
+          dyn=model,
         )
 
 # Simulation parameters
@@ -62,6 +83,7 @@ h_vals = []
 h = lambda x: np.min([np.linalg.norm(x[0:2] - c[0]) - c[1] for c in obstacles])
 
 def closed_loop_sys(x, t):
+    # RHS of ODE
     start = time.time()
     u, xt = mpc.get_control(x)
     tc = time.time() - start
@@ -87,6 +109,13 @@ for i in range(1, num_steps):
     trajectory[i, :] = copy.copy(xnext)
 
 results = {"trajs_data": trajectory, "controls": controls, "comp_times": comp_times, "h_vals": h_vals}
+
+if save_data:
+
+    os.makedirs(path_dir, exist_ok=True)
+    with open(f'{folder_name}MPC1.pkl', 'wb') as file:
+        pickle.dump(results, file)
+
 fig, ax = plt.subplots()
 
 # Initialize plot elements
@@ -108,16 +137,12 @@ ax.axis('equal')
 ax.set_xlim(-0.1, 6.5)
 ax.set_ylim(-0.1, 6.5)
 
-plt.show()
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'MPC_fig1.png'))
 
 fig, ax = plt.subplots()
 
 ax.plot([c[0] for c in controls])
 ax.plot([c[1] for c in controls])
-plt.show()
-
-if save_data:
-    path_dir = os.path.dirname('./temp-data/')
-    os.makedirs(path_dir, exist_ok=True)
-    with open(f'./temp-data/MPC1.pkl', 'wb') as file:
-        pickle.dump(results, file)
+# plt.show()
+plt.savefig(os.path.join(folder_name, 'MPC_fig2.png'))

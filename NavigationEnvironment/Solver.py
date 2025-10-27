@@ -7,6 +7,8 @@ import copy
 
 
 class DifferentiableEuler:
+    # CRH: the main formulation that get d phi / ds and dJ / ds via differentiable euler integration
+    # can reuse for other dynamics
     def __init__(self, dyn, T, dt, control_dt, h_funs=[], J_fun=None, dynamic_J=False):
         self.dyn = dyn
         self.ode_jit = jax.jit(self.ode)
@@ -22,9 +24,12 @@ class DifferentiableEuler:
         self.h_grads = []
         self.dhdss = []
         for i, h in enumerate(h_funs):
+            # [CRH] auto differentiation of the gradient and hessian of constraint functions
             self.h_jits.append(jax.jit(h))
 
             # Capture the current value of i using a default argument
+            # [CRH] need some work here if the h are time dependent.
+            # need to do similar to dynamic_J below
             self.h_grads.append(jax.value_and_grad(lambda x, h_jit=self.h_jits[i]: self.diff_h_fun(x, h_jit)))
             self.dhdss.append(jax.jit(self.h_grads[i]))
 
@@ -35,6 +40,7 @@ class DifferentiableEuler:
             # self.J_grad = jax.grad(self.J_jit)
             self.dJds = jax.jit(self.J_grad)
         else:
+            # [CRH] need to change here if we have a dynamic reference, argnums = 0 meaning it is differentiate with respect to first arg s
             self.J_grad = jax.grad(self.diff_J_fun_dynamic, argnums=0)
             self.dJds = jax.jit(self.J_grad)
 
@@ -57,6 +63,7 @@ class DifferentiableEuler:
         return self.dyn.f(x) + self.dyn.g(x) @ u
 
     def integrate(self, s):
+        # standard euler integration, not for jitting
         x0 = s[:self.dyn.nx]
         u_seq = s[self.dyn.nx:]
         x_sol = [x0]
@@ -69,6 +76,8 @@ class DifferentiableEuler:
         return jnp.array(x_sol)
 
     def integrate_fori(self, s):
+        # CRH: fori loop implementation of euler integration
+        # allows jax to unroll the loop for better performance
         x_sol = jnp.zeros((int(self.T / self.dt), self.dyn.nx))
         x_sol = x_sol.at[0, :].set(s[:self.dyn.nx])
         u_seq = s[self.dyn.nx:]
@@ -94,6 +103,7 @@ class DynamicUnicycleModel:
         self.nu = 2
         self.u_min = jnp.array([-1., - 3])
         self.u_max = jnp.array([1., 3])
+        self.name = "DynamicUnicycleModel"
 
     def f(self, x):
         return jnp.array([x[2] * jnp.cos(x[3]), x[2] * jnp.sin(x[3]), 0., 0.])
@@ -107,6 +117,7 @@ class DIModel:
         self.nu = 2
         self.u_min = jnp.array([-1., - 1])
         self.u_max = jnp.array([1., 1])
+        self.name = "DIModel"
 
     def f(self, x):
         return jnp.array([x[2], x[3], 0., 0.])

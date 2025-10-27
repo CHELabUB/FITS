@@ -3,8 +3,14 @@ from NavigationEnvironment.Solver import DIModel
 import jax
 
 class CBFQP:
-    def __init__(self, constraint_functions):
-        self.dyn = DIModel()
+    def __init__(self, constraint_functions, dyn=None):
+        if dyn is None:
+            print("Using default dynamics model DIModel for CBF-QP.")
+            self.dyn = DIModel()
+        else:
+            print(f"Using provided dynamics model {dyn.name} for CBF-QP.")
+            self.dyn = dyn
+
         self.Q = np.diag(np.array([1., 1.]))
         self.constraint_functions = constraint_functions
 
@@ -38,6 +44,7 @@ class CBFQP:
         G_ineq = np.empty((0, len(u_ref)))
         h_ineq = np.empty((0, 1))
 
+        # [CRH] the less conservative one
         alp1 = 20
         alp2 = 0.99 * 0.25 * alp1**2
 
@@ -82,6 +89,8 @@ class MPC:
             warmstart: bool = True,
             soft_constraints: bool = False,
             constraint_functions: list = None,
+            xg: np.array = np.array([6., 6., 0., 0.]),
+            dyn = None,
             ):
         '''Creates task and controller.
 
@@ -94,7 +103,13 @@ class MPC:
             additional_constraints (list): List of additional constraints
             '''
 
-        self.dyn = DIModel()
+        if dyn is None:
+            print("Using default dynamics model DIModel for MPC.")
+            self.dyn = DIModel()
+        else:
+            print(f"Using provided dynamics {dyn.name} model for MPC.")
+            self.dyn = dyn
+
         self.dt = 1 / control_freq
         self.horizon = horizon
         self.Q = np.diag(np.array(q_mpc))
@@ -103,6 +118,7 @@ class MPC:
         self.soft_constraints = soft_constraints
         self.warmstart = warmstart
         self.constraint_functions = constraint_functions
+        self.xg = xg
 
         self.x_prev = None
         self.u_prev = None
@@ -133,6 +149,7 @@ class MPC:
 
     def setup_optimizer(self):
         '''Sets up nonlinear optimization problem.'''
+        # [CRH] Standard discretization for optimal control using CasADi
         nx, nu = self.dyn.nx, self.dyn.nu
 
         T = self.horizon
@@ -229,7 +246,9 @@ class MPC:
         # Assign the initial state.
         opti.set_value(x_init, x)
         # Assign reference trajectory within horizon.
-        goal_states = np.tile(np.array([6., 6., 0., 0.]).reshape(-1, 1), (1, self.horizon + 1))
+        # [CRH] the goal state is not set outside but acquired here.
+        # [CRH] updated to take goal state set outside,
+        goal_states = np.tile(self.xg.reshape(-1, 1), (1, self.horizon + 1))
         opti.set_value(x_ref, goal_states)
 
         start = time.time()

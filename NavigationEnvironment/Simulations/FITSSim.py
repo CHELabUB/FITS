@@ -4,26 +4,43 @@ import copy
 import jax.numpy as jnp
 import time
 from NavigationEnvironment.FITSController import FITS
+from NavigationEnvironment.Solver import DIModel, DynamicUnicycleModel
 import pickle
 import os
 
 
 # Initial state and goal state
 x0 = jnp.array([0.0, 1.0, 0.0, 0.])
-xg = jnp.array([6.0, 6.0, 0.0, 0.])
+xg = jnp.array([6.0, 1.0, 0.0, 0.])
+# xg = jnp.array([6.0, 6.0, 0.0, 0.])
 
 
-save_data = False
+save_data = True
+# folder_name = './temp_single_obstacle/'
+# model = DIModel()
+
+folder_name = './temp_single_obstacle_Unicycle/'
+model = DynamicUnicycleModel()
+
+use_min_formulation = False
+run_name = 'FITS'
+
+use_min_formulation = True
+run_name = 'FITS2'
 
 
-N_obs = 30
+path_dir = os.path.dirname(folder_name)
+
+# one single one directly on the track
+N_obs = 1
 obstacles = []
-np.random.seed(43)
-for i in range(N_obs):
-    x = np.random.uniform(1., 5.)
-    y = np.random.uniform(1., 5.)
-    r = np.random.uniform(0.1, 0.6)
-    obstacles.append((jnp.array([x, y]), r))
+obstacles.append((jnp.array([3.0, 1.0]), 0.5))
+# np.random.seed(43)
+# for i in range(N_obs):
+#     x = np.random.uniform(1., 5.)
+#     y = np.random.uniform(1., 5.)
+#     r = np.random.uniform(0.1, 0.6)
+#     obstacles.append((jnp.array([x, y]), r))
 
 # obstacle avoidance constraints
 constraint_functions = [lambda x, c=c: jnp.linalg.norm(x[..., 0:2] - c[0], axis=1) - c[1] for c in obstacles]
@@ -47,7 +64,9 @@ oacis = FITS(control_freq=20,
               alpha_2=20,
               warmstart=False,
               use_min_formulation=False,
-              constraint_functions=constraint_functions
+              constraint_functions=constraint_functions,
+              xg=xg[:2],
+              dyn=model,
               )
 
 # Simulation parameters
@@ -89,6 +108,12 @@ for i in range(1, num_steps):
 
 
 results = {"trajs_data": trajectory, "controls": controls, "comp_times": comp_times, "h_vals": h_vals}
+
+if save_data:
+    os.makedirs(path_dir, exist_ok=True)
+    with open(f'{folder_name}{run_name}.pkl', 'wb') as file:
+        pickle.dump(results, file)
+
 fig, ax = plt.subplots()
 
 # Initialize plot elements
@@ -110,16 +135,12 @@ ax.axis('equal')
 ax.set_xlim(-0.1, 6.5)
 ax.set_ylim(-0.1, 6.5)
 
-plt.show()
+# plt.show()
+plt.savefig(os.path.join(folder_name, f'{run_name}_fig1.png'))
 
 fig, ax = plt.subplots()
 # ax.plot(h_vals)
 ax.plot([c[0] for c in controls])
 ax.plot([c[1] for c in controls])
-plt.show()
-
-if save_data:
-    path_dir = os.path.dirname('./temp-data/')
-    os.makedirs(path_dir, exist_ok=True)
-    with open(f'./temp-data/FITS.pkl', 'wb') as file:
-        pickle.dump(results, file)
+# plt.show()
+plt.savefig(os.path.join(folder_name, f'{run_name}_fig2.png'))
