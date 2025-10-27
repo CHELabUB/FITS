@@ -4,31 +4,43 @@ import copy
 import jax.numpy as jnp
 import time
 from NavigationEnvironment.Baselines import CBFQP
+from NavigationEnvironment.Solver import DIModel, DynamicUnicycleModel
 import os
 import pickle
 
 
 # Initial state and goal state
 x0 = jnp.array([0.0, 1.0, 0.0, 0.])
-xg = jnp.array([6.0, 6.0, 0.0, 0.])
+xg = jnp.array([6.0, 1.0, 0.0, 0.])
+# xg = jnp.array([6.0, 6.0, 0.0, 0.])
+
 
 save_data = True
-folder_name = './temp_data/'
+# folder_name = './temp_single_obstacle/'
+# model = DIModel()
+
+folder_name = './temp_single_obstacle_Unicycle/'
+model = DynamicUnicycleModel()
+
+
 path_dir = os.path.dirname(folder_name)
 
-N_obs = 30
+# one single one directly on the track
+N_obs = 1
 obstacles = []
-np.random.seed(43)
-for i in range(N_obs):
-    x = np.random.uniform(1., 5.)
-    y = np.random.uniform(1., 5.)
-    r = np.random.uniform(0.1, 0.6)
-    obstacles.append((jnp.array([x, y]), r))
+obstacles.append((jnp.array([3.0, 1.0]), 0.5))
+# np.random.seed(43)
+# for i in range(N_obs):
+#     x = np.random.uniform(1., 5.)
+#     y = np.random.uniform(1., 5.)
+#     r = np.random.uniform(0.1, 0.6)
+#     obstacles.append((jnp.array([x, y]), r))
+
 
 
 constraint_functions = [lambda x, c=c: jnp.linalg.norm(x[0:2] - c[0]) - c[1] for c in obstacles]
 
-cbf = CBFQP(constraint_functions)
+cbf = CBFQP(constraint_functions, dyn=model)
 
 # Simulation parameters
 dt = 0.01  # Time step

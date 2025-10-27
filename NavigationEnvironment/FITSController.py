@@ -16,6 +16,8 @@ class FITS:
             warmstart: bool = True,
             use_min_formulation: bool = False,
             constraint_functions: list = None,
+            xg: jnp.array = jnp.array([6., 6.]),
+            dyn = None,
             ):
         '''Creates task and controller.
 
@@ -28,7 +30,13 @@ class FITS:
         self.use_min = use_min_formulation
 
         # self.dyn = DynamicUnicycleModel()
-        self.dyn = DIModel()
+        if dyn is None:
+            # self.dyn = dyn
+            print("Using default dynamics model DIModel for FITS.")
+            self.dyn = DIModel()
+        else:
+            print(f"Using provided dynamics model {dyn.name} for FITS.")
+            self.dyn = dyn
 
         # [CRH] for FITS, states include initial condition and input trajectory
         self.state = jnp.concatenate((jnp.zeros(self.dyn.nx), 0.01*jnp.ones((horizon - 1) * self.dyn.nu)))
@@ -37,7 +45,8 @@ class FITS:
         self.N = horizon
         self.T = (self.N) * self.dt
         self.M = trajectory_discretization
-
+        # target state
+        self.xg = xg
 
         # actuation constraints
         self.umin = self.dyn.u_min
@@ -109,12 +118,14 @@ class FITS:
     def J_s(self, x_sol):
         # [CRH] quadratic cost on final state and control effort
         # also not set outside but directly defined here
-        # also weight on 
-        J = 10*(jnp.sum(jnp.linalg.norm(jnp.array([1., 1.]) * (x_sol[..., :2] - jnp.array([6., 6.])), axis=1))) + 0*x_sol[-1, 2:] @ x_sol[-1, 2:].T
+        # also weight on objective can be tuned outside
+        # [CRH] updated to take goal state set outside,
+        J = 10*(jnp.sum(jnp.linalg.norm(jnp.array([1., 1.]) * (x_sol[..., :2] - self.xg), axis=1))) + 0*x_sol[-1, 2:] @ x_sol[-1, 2:].T
         return J
 
     def J_filter(self, state):
-        u_ref = jnp.clip(jnp.diag(jnp.array([-1, -1])) @ (state[:2] - jnp.array([6., 6.])), self.dyn.u_min, self.dyn.u_max)
+        # [CRH] updated to take goal state set outside,
+        u_ref = jnp.clip(jnp.diag(jnp.array([-1, -1])) @ (state[:2] - self.xg), self.dyn.u_min, self.dyn.u_max)
         return jnp.linalg.norm(state[self.dyn.nx:(self.dyn.nx + self.dyn.nu)] - u_ref)
 
     def input_constraints(self, G_ineq, h_ineq, state):

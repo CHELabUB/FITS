@@ -103,6 +103,7 @@ class DynamicUnicycleModel:
         self.nu = 2
         self.u_min = jnp.array([-1., - 3])
         self.u_max = jnp.array([1., 3])
+        self.name = "DynamicUnicycleModel"
 
     def f(self, x):
         return jnp.array([x[2] * jnp.cos(x[3]), x[2] * jnp.sin(x[3]), 0., 0.])
@@ -116,6 +117,7 @@ class DIModel:
         self.nu = 2
         self.u_min = jnp.array([-1., - 1])
         self.u_max = jnp.array([1., 1])
+        self.name = "DIModel"
 
     def f(self, x):
         return jnp.array([x[2], x[3], 0., 0.])
